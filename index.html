@@ -6,6 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>나만의 주간 계획표</title>
+  <link rel="apple-touch-icon" href="https://img.icons8.com/fluent/192/000000/calendar-external.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -29,14 +30,12 @@
       appId: "1:540596602034:web:a10d8aa7085a7c6b0475ab"
     };
 
-    // 파이어베이스 초기화
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
     }
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // SVG 아이콘
     const CheckIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>;
     const PlusIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>;
     const TrashIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
@@ -58,6 +57,14 @@
 
     const DAY_NAMES = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
 
+    // 시차 버그 해결을 위해 세계 표준시가 아닌 '한국 로컬 날짜 문자열'을 직접 생성하는 방식으로 수정
+    const formatDateToLocalString = (dateObj) => {
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     const getWeekDates = () => {
       const today = new Date();
       const dayOfWeek = today.getDay();
@@ -71,7 +78,7 @@
         date.setDate(monday.getDate() + i);
         week.push({
           date,
-          dateString: date.toISOString().split('T')[0],
+          dateString: formatDateToLocalString(date), // 여기를 수정했습니다!
           dayName: DAY_NAMES[date.getDay()],
           shortDate: `${date.getMonth() + 1}/${date.getDate()}`
         });
@@ -125,7 +132,7 @@
         if (!user) return;
         const docRef = db.collection('users').doc(user.uid).collection('weekly_planner').doc('my_data');
         const unsubscribe = docRef.onSnapshot((docSnap) => {
-          if (docSnap.exists) setTodos(docSnap.data().todos || {});
+          if (docSnap.exists()) setTodos(docSnap.data().todos || {});
           else setTodos({}); 
         });
         return () => unsubscribe();
@@ -158,6 +165,9 @@
         saveToDatabase({ ...todos, [dateString]: (todos[dateString] || []).filter(todo => todo.id !== id) });
       };
 
+      // 오늘 날짜 계산도 한국 시간 기준으로 엄격하게 고정
+      const todayStr = formatDateToLocalString(new Date());
+
       return (
         <div className="min-h-screen bg-gray-50 text-gray-800 p-4 md:p-8 font-sans pb-12 select-none">
           <div className="max-w-5xl mx-auto">
@@ -179,7 +189,7 @@
                 const weather = weatherData[day.dateString];
                 const weatherInfo = getWeatherInfo(weather?.code);
                 const dayTodos = todos[day.dateString] || [];
-                const isToday = day.dateString === new Date().toISOString().split('T')[0];
+                const isToday = day.dateString === todayStr; // 오늘 날짜 체크 수정
 
                 return (
                   <div key={day.dateString} className={`bg-white rounded-2xl shadow-sm border ${isToday ? 'border-blue-400 ring-2 ring-blue-50' : 'border-gray-100'} p-5 flex flex-col min-h-[250px]`}>
