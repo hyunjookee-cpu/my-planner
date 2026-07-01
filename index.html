@@ -6,13 +6,18 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>나만의 주간 계획표</title>
+  <!-- 아이폰 홈 화면 아이콘 설정 -->
   <link rel="apple-touch-icon" href="https://img.icons8.com/fluent/192/000000/calendar-external.png">
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
@@ -20,7 +25,6 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // 회원님의 전용 파이어베이스 열쇠
     const firebaseConfig = {
       apiKey: "AIzaSyDfzB3U15Rktb0o6G2criirh5WcrVfJBEw",
       authDomain: "my-weekly-planner-869f1.firebaseapp.com",
@@ -57,7 +61,6 @@
 
     const DAY_NAMES = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
 
-    // 시차 버그 해결을 위해 세계 표준시가 아닌 '한국 로컬 날짜 문자열'을 직접 생성하는 방식으로 수정
     const formatDateToLocalString = (dateObj) => {
       const year = dateObj.getFullYear();
       const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -78,7 +81,7 @@
         date.setDate(monday.getDate() + i);
         week.push({
           date,
-          dateString: formatDateToLocalString(date), // 여기를 수정했습니다!
+          dateString: formatDateToLocalString(date),
           dayName: DAY_NAMES[date.getDay()],
           shortDate: `${date.getMonth() + 1}/${date.getDate()}`
         });
@@ -123,8 +126,14 @@
         };
         fetchWeather();
 
-        auth.signInAnonymously().catch(console.error);
-        const unsubscribe = auth.onAuthStateChanged(setUser);
+        // 💡 로그인 연결이 끊기지 않도록 더욱 안전하게 수정한 부분입니다.
+        const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+          if (currentUser) {
+            setUser(currentUser);
+          } else {
+            auth.signInAnonymously().catch(console.error);
+          }
+        });
         return () => unsubscribe();
       }, []);
 
@@ -132,7 +141,8 @@
         if (!user) return;
         const docRef = db.collection('users').doc(user.uid).collection('weekly_planner').doc('my_data');
         const unsubscribe = docRef.onSnapshot((docSnap) => {
-          if (docSnap.exists()) setTodos(docSnap.data().todos || {});
+          // 🚨 제가 괄호를 잘못 넣었던 버그 수정 완료!
+          if (docSnap.exists) setTodos(docSnap.data().todos || {});
           else setTodos({}); 
         });
         return () => unsubscribe();
@@ -165,7 +175,6 @@
         saveToDatabase({ ...todos, [dateString]: (todos[dateString] || []).filter(todo => todo.id !== id) });
       };
 
-      // 오늘 날짜 계산도 한국 시간 기준으로 엄격하게 고정
       const todayStr = formatDateToLocalString(new Date());
 
       return (
@@ -189,7 +198,7 @@
                 const weather = weatherData[day.dateString];
                 const weatherInfo = getWeatherInfo(weather?.code);
                 const dayTodos = todos[day.dateString] || [];
-                const isToday = day.dateString === todayStr; // 오늘 날짜 체크 수정
+                const isToday = day.dateString === todayStr;
 
                 return (
                   <div key={day.dateString} className={`bg-white rounded-2xl shadow-sm border ${isToday ? 'border-blue-400 ring-2 ring-blue-50' : 'border-gray-100'} p-5 flex flex-col min-h-[250px]`}>
